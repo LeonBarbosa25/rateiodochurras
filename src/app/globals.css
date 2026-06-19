@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: linear-gradient(180deg, #fff7ed 0%, #fff 30%);
+  min-height: 100%;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl bg-white shadow-sm border border-coal-100 p-5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 font-medium text-sm transition active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-ember-600 text-white hover:bg-ember-700;
+  }
+  .btn-secondary {
+    @apply btn bg-coal-100 text-coal-800 hover:bg-coal-700/10;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-ghost {
+    @apply btn text-coal-700 hover:bg-coal-100;
+  }
+  .input {
+    @apply w-full rounded-xl border border-coal-100 bg-white px-3 py-2.5 text-sm
+           focus:outline-none focus:ring-2 focus:ring-ember-500/40 focus:border-ember-500;
+  }
+  .label {
+    @apply block text-xs font-medium text-coal-700 mb-1.5 uppercase tracking-wide;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .money {
+    @apply font-semibold tabular-nums;
+  }
+  .table {
+    @apply w-full text-sm;
+  }
+  .table th {
+    @apply text-left text-xs font-semibold uppercase text-coal-700 px-3 py-2 bg-ember-50/60;
+  }
+  .table td {
+    @apply px-3 py-3 border-t border-coal-100 align-middle;
+  }
+}
