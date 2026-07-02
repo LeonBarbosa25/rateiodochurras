@@ -239,23 +239,21 @@ export async function computeBarbecueSummary(barbecueId: string): Promise<Barbec
     const nonOrgCount = nonOrgSplitters.length;
 
     if (organizerIds.size > 0 && nonOrgCount > 0) {
-      const floorDiscount = Math.floor(totalLeftoversCents / nonOrgCount);
-      const remainder = totalLeftoversCents - floorDiscount * nonOrgCount;
+      const discount = Math.floor(totalLeftoversCents / nonOrgCount);
+      const totalDiscountCents = discount * nonOrgCount;
 
-      // Desconto dos não-organizadores (determinístico: remainder primeiros levam +1)
-      let remainderApplied = 0;
+      // Mantem participantes equivalentes com o mesmo valor. Centavos indivisiveis
+      // ficam no ajuste do organizador para evitar cobranças 1 centavo diferentes.
       for (const p of nonOrgSplitters) {
         const r = result.rows.find((row) => row.participantId === p.id);
         if (!r) continue;
-        const discount = remainderApplied < remainder ? floorDiscount + 1 : floorDiscount;
         r.amountDueCents = Math.max(0, r.amountDueCents - discount);
-        remainderApplied++;
       }
 
-      // Organizador absorve o valor cheio da sobra
+      // Organizador absorve o mesmo total descontado dos demais.
       const orgCount = organizerIds.size;
-      const floorOrgAdd = Math.floor(totalLeftoversCents / orgCount);
-      const orgRemainder = totalLeftoversCents - floorOrgAdd * orgCount;
+      const floorOrgAdd = Math.floor(totalDiscountCents / orgCount);
+      const orgRemainder = totalDiscountCents - floorOrgAdd * orgCount;
       let orgRemainderApplied = 0;
       for (const orgId of organizerIds) {
         const r = result.rows.find((row) => row.participantId === orgId);
