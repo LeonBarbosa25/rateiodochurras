@@ -14,6 +14,12 @@ export default async function PagamentosPage({ params }: { params: { id: string 
     computeBarbecueSummary(b.id),
   ]);
   const nameById = new Map(participants.map((p) => [p.id, p.name]));
+  const statusLabels: Record<string, string> = {
+    informado: 'Informado',
+    confirmado: 'Foi pago',
+    rejeitado: 'Rejeitado',
+    estornado: 'Estornado',
+  };
 
   return (
     <div className="space-y-5">
@@ -83,7 +89,7 @@ export default async function PagamentosPage({ params }: { params: { id: string 
                             className={`pill ${p.status === s ? 'bg-ember-600 text-white' : 'bg-coal-100 text-coal-800'}`}
                             type="submit"
                           >
-                            {s}
+                            {statusLabels[s]}
                           </button>
                         ))}
                       </form>
@@ -100,7 +106,7 @@ export default async function PagamentosPage({ params }: { params: { id: string 
         <h2 className="font-bold mb-3">Saldo por participante</h2>
         <div className="overflow-x-auto">
           <table className="table">
-            <thead><tr><th>Participante</th><th className="text-right">Devido</th><th className="text-right">Pago</th><th className="text-right">Saldo</th></tr></thead>
+            <thead><tr><th>Participante</th><th className="text-right">Devido</th><th className="text-right">Pago</th><th className="text-right">Saldo</th><th></th></tr></thead>
             <tbody>
               {summary.rows.map((r) => (
                 <tr key={r.participant.id}>
@@ -110,6 +116,20 @@ export default async function PagamentosPage({ params }: { params: { id: string 
                   <td className={`text-right money ${r.balanceCents > 0 ? 'text-ember-700' : r.balanceCents < 0 ? 'text-green-700' : ''}`}>
                     {formatBRL(r.balanceCents)}
                   </td>
+                  <td className="text-right">
+                    {r.balanceCents > 0 ? (
+                      <form action={createPaymentAction} className="inline-flex justify-end">
+                        <input type="hidden" name="barbecue_id" value={b.id} />
+                        <input type="hidden" name="participant_id" value={r.participant.id} />
+                        <input type="hidden" name="value" value={formatPaymentValue(r.balanceCents)} />
+                        <input type="hidden" name="payment_method" value="pix" />
+                        <input type="hidden" name="status" value="confirmado" />
+                        <SubmitButton label="Foi pago" />
+                      </form>
+                    ) : (
+                      <span className="text-xs text-coal-700">Quitado</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -118,4 +138,8 @@ export default async function PagamentosPage({ params }: { params: { id: string 
       </div>
     </div>
   );
+}
+
+function formatPaymentValue(cents: number): string {
+  return (cents / 100).toFixed(2);
 }
