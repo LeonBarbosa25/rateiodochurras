@@ -15,7 +15,7 @@ export default function CopyButton({
 }) {
   const [copied, setCopied] = useState(false);
   async function onClick() {
-    const content = path ? `${window.location.origin}${path}` : (text || '');
+    const content = path ? `${window.location.origin}${path}` : (text || '').replaceAll('[LINK]', window.location.origin);
     try {
       await navigator.clipboard.writeText(content);
       setCopied(true);

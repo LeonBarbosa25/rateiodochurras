@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation';
 import { getBarbecue, listExpenses } from '@/lib/queries';
 import { formatBRL } from '@/lib/money';
-import { createExpenseAction, deleteExpenseAction } from '@/lib/actions';
+import { formatDateBR } from '@/lib/date';
+import { createExpenseAction, deleteExpenseAction, updateExpenseAction } from '@/lib/actions';
+import ExpenseForm from './ExpenseForm';
+import ConfirmDelete from '@/app/ConfirmDelete';
 
 const CATEGORIAS = ['Carnes', 'Bebidas', 'Acompanhamentos', 'Sobremesas', 'Gelo', 'Carvão', 'Descartáveis', 'Aluguel', 'Música', 'Decoração', 'Transporte', 'Outros'];
 
@@ -21,29 +24,7 @@ export default async function DespesasPage({ params }: { params: { id: string } 
     <div className="space-y-5">
       <div className="card">
         <h2 className="font-bold mb-3">Nova despesa</h2>
-        <form action={createExpenseAction} className="grid sm:grid-cols-3 gap-3">
-          <input type="hidden" name="barbecue_id" value={b.id} />
-          <div className="sm:col-span-2"><label className="label">Descrição *</label><input className="input" name="description" required /></div>
-          <div>
-            <label className="label">Categoria</label>
-            <select className="input" name="category" defaultValue="Carnes">
-              {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div><label className="label">Quantidade</label><input className="input" name="quantity" defaultValue="1" /></div>
-          <div><label className="label">Valor unitário (R$)</label><input className="input" name="unit_value" placeholder="0,00" inputMode="decimal" /></div>
-          <div><label className="label">Valor total (R$)</label><input className="input" name="total_value" placeholder="0,00" inputMode="decimal" /></div>
-          <div><label className="label">Data da compra</label><input className="input" name="purchase_date" type="date" /></div>
-          <div><label className="label">Quem pagou</label><input className="input" name="paid_by_name" placeholder="Organizador" /></div>
-          <div className="flex items-end">
-            <label className="inline-flex items-center gap-2 text-sm pb-2">
-              <input type="checkbox" name="included_in_split" defaultChecked /> Incluir no rateio
-            </label>
-          </div>
-          <div className="sm:col-span-3 flex justify-end">
-            <button className="btn-primary" type="submit">Adicionar despesa</button>
-          </div>
-        </form>
+        <ExpenseForm action={createExpenseAction} barbecueId={b.id} categories={CATEGORIAS} />
       </div>
 
       <div className="card">
@@ -62,20 +43,31 @@ export default async function DespesasPage({ params }: { params: { id: string } 
               <tbody>
                 {expenses.map((e) => (
                   <tr key={e.id}>
-                    <td>{e.description}</td>
-                    <td>{e.category || '—'}</td>
-                    <td>{e.quantity}</td>
-                    <td className="text-right money">{formatBRL(e.unit_value_cents)}</td>
-                    <td className="text-right money">{formatBRL(e.total_value_cents)}</td>
-                    <td>{e.paid_by_name || '—'}</td>
-                    <td>{e.purchase_date || '—'}</td>
-                    <td>{e.included_in_split ? 'Sim' : 'Não'}</td>
-                    <td>
-                      <form action={deleteExpenseAction}>
-                        <input type="hidden" name="barbecue_id" value={b.id} />
-                        <input type="hidden" name="expense_id" value={e.id} />
-                        <button className="btn-ghost text-red-700" type="submit">Excluir</button>
-                      </form>
+                    <td colSpan={9}>
+                      <div className="space-y-3">
+                        <div className="grid md:grid-cols-9 gap-2 items-center">
+                          <span className="md:col-span-2 font-medium">{e.description}</span>
+                          <span>{e.category || '—'}</span>
+                          <span>Qtd {e.quantity}</span>
+                          <span className="money text-right">{formatBRL(e.unit_value_cents)}</span>
+                          <span className="money text-right text-ember-700">{formatBRL(e.total_value_cents)}</span>
+                          <span>{e.paid_by_name || '—'}</span>
+                          <span>{formatDateBR(e.purchase_date)}</span>
+                          <span>{e.included_in_split ? 'Rateio' : 'Fora'}</span>
+                        </div>
+                        <div className="flex justify-end gap-2 text-xs text-coal-700">
+                          <details className="flex-1 text-right">
+                            <summary className="btn-ghost cursor-pointer inline-flex">Editar</summary>
+                            <div className="mt-3 border-t border-coal-100 pt-3 text-left">
+                              <ExpenseForm action={updateExpenseAction} barbecueId={b.id} categories={CATEGORIAS} expense={e} compact />
+                            </div>
+                          </details>
+                          <ConfirmDelete formAction={deleteExpenseAction} message="Excluir esta despesa?">
+                            <input type="hidden" name="barbecue_id" value={b.id} />
+                            <input type="hidden" name="expense_id" value={e.id} />
+                          </ConfirmDelete>
+                          </div>
+                      </div>
                     </td>
                   </tr>
                 ))}

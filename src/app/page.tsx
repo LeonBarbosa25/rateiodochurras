@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { computeBarbecueSummary, listBarbecuesForOwner } from '@/lib/queries';
 import { formatBRL } from '@/lib/money';
+import { formatDateBR } from '@/lib/date';
 
 export default async function HomePage({ searchParams }: { searchParams: { filtro?: string } }) {
   const user = await getSessionUser();
@@ -32,7 +33,10 @@ export default async function HomePage({ searchParams }: { searchParams: { filtr
           <h1 className="text-2xl font-bold">Meus churrascos</h1>
           <p className="text-coal-700 text-sm">Olá, {user.name}. Vamos rachar a conta?</p>
         </div>
-        <Link href="/churrasco/new" className="btn-primary">+ Criar churrasco</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/participantes" className="btn-secondary">Participantes</Link>
+          <Link href="/churrasco/new" className="btn-primary">+ Criar churrasco</Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm">
@@ -73,7 +77,7 @@ export default async function HomePage({ searchParams }: { searchParams: { filtr
                   <span className={`pill ${statusColor(c.status)}`}>{statusLabel(c.status)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-4 text-sm">
-                  <Info label="Data" value={c.event_date || '—'} />
+                  <Info label="Data" value={formatDateBR(c.event_date)} />
                   <Info label="Participantes" value={String(s.participantCount)} />
                   <Info label="Total despesas" value={formatBRL(s.totalExpensesCents)} />
                   <Info label="Recebido" value={formatBRL(s.totalPaidCents)} />

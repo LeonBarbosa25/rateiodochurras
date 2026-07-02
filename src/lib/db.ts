@@ -18,6 +18,7 @@ const sql = postgres(connectionString || 'postgres://invalid', {
   prepare: false,
   max: 5,
   idle_timeout: 20,
+  onnotice: () => {},
 });
 
 const SCHEMA = `
@@ -131,12 +132,32 @@ CREATE INDEX IF NOT EXISTS idx_participants_barbecue ON participants(barbecue_id
 CREATE INDEX IF NOT EXISTS idx_expenses_barbecue ON expenses(barbecue_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_barbecue ON contributions(barbecue_id);
 CREATE INDEX IF NOT EXISTS idx_payments_barbecue ON payments(barbecue_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_url TEXT;
+DO $$ BEGIN ALTER TABLE contributions ALTER COLUMN participant_id DROP NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE barbecues ADD COLUMN IF NOT EXISTS pix_receiver_name TEXT; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 `;
 
 let schemaPromise: Promise<void> | null = null;
 async function ensureSchema(): Promise<void> {
   if (!schemaPromise) {
     schemaPromise = (async () => {
+      const exists = await sql.unsafe(`
+        SELECT to_regclass('public.users') AS users,
+               EXISTS (
+                 SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'payments' AND column_name = 'receipt_url'
+               ) AS has_receipt_url,
+               EXISTS (
+                 SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'barbecues' AND column_name = 'pix_receiver_name'
+               ) AS has_pix_receiver_name,
+               (SELECT is_nullable = 'YES' FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'contributions' AND column_name = 'participant_id') AS participant_nullable
+      `) as unknown as { users: string | null; has_receipt_url: boolean; has_pix_receiver_name: boolean; participant_nullable: boolean }[];
+      if (exists[0]?.users && exists[0]?.has_receipt_url && exists[0]?.has_pix_receiver_name && exists[0]?.participant_nullable) return;
+
       // executa cada statement separadamente para sermos compatíveis com
       // drivers que não aceitam múltiplos statements via unsafe
       const stmts = SCHEMA.split(/;\s*(?=CREATE|ALTER|INSERT|DROP)/i)

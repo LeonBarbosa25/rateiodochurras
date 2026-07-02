@@ -4,8 +4,10 @@ import { formatBRL } from '@/lib/money';
 import {
   createContributionAction,
   deleteContributionAction,
-  setContributionStatusAction,
+  updateContributionAction,
 } from '@/lib/actions';
+import SubmitButton from '@/app/SubmitButton';
+import ConfirmDelete from '@/app/ConfirmDelete';
 
 const CATEGORIAS = ['Carnes', 'Bebidas', 'Acompanhamentos', 'Sobremesas', 'Gelo', 'Carvão', 'Outros'];
 
@@ -22,13 +24,13 @@ export default async function ContribuicoesPage({ params }: { params: { id: stri
     <div className="space-y-5">
       <div className="card">
         <h2 className="font-bold mb-3">Nova contribuição</h2>
-        <p className="text-xs text-coal-700 mb-3">Algo que um participante levou (carne, bebida, gelo) — o valor reconhecido aqui é descontado da parte dele e redistribuído entre os demais.</p>
+        <p className="text-xs text-coal-700 mb-3">Escolha o participante que levou algo, ou <strong>Sobrou</strong> para registrar itens que sobraram (o organizador ficou com eles). O valor da sobra é cobrado do organizador e dividido como desconto entre os demais participantes.</p>
         <form action={createContributionAction} className="grid sm:grid-cols-3 gap-3">
           <input type="hidden" name="barbecue_id" value={b.id} />
           <div>
-            <label className="label">Participante *</label>
-            <select className="input" name="participant_id" required>
-              <option value="">Selecionar…</option>
+            <label className="label">Quem levou</label>
+            <select className="input" name="participant_id" defaultValue="">
+                                  <option value="">Sobrou (organizador ficou com o item)</option>
               {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
@@ -50,7 +52,7 @@ export default async function ContribuicoesPage({ params }: { params: { id: stri
             </select>
           </div>
           <div className="sm:col-span-3 flex justify-end">
-            <button className="btn-primary" type="submit">Registrar contribuição</button>
+            <SubmitButton label="Registrar contribuição" />
           </div>
         </form>
       </div>
@@ -68,33 +70,65 @@ export default async function ContribuicoesPage({ params }: { params: { id: stri
               <tbody>
                 {contributions.map((c) => (
                   <tr key={c.id}>
-                    <td>{nameById.get(c.participant_id) || '—'}</td>
-                    <td>{c.description}</td>
-                    <td>{c.category || '—'}</td>
-                    <td className="text-right money">{formatBRL(c.value_cents)}</td>
-                    <td>
-                      <form action={setContributionStatusAction} className="flex gap-1">
-                        <input type="hidden" name="barbecue_id" value={b.id} />
-                        <input type="hidden" name="contribution_id" value={c.id} />
-                        {['pendente', 'aprovada', 'rejeitada'].map((s) => (
-                          <button
-                            key={s}
-                            name="status"
-                            value={s}
-                            className={`pill ${c.status === s ? 'bg-ember-600 text-white' : 'bg-coal-100 text-coal-800'}`}
-                            type="submit"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </form>
-                    </td>
-                    <td>
-                      <form action={deleteContributionAction}>
-                        <input type="hidden" name="barbecue_id" value={b.id} />
-                        <input type="hidden" name="contribution_id" value={c.id} />
-                        <button className="btn-ghost text-red-700" type="submit">Excluir</button>
-                      </form>
+                    <td colSpan={6}>
+                      <div className="space-y-3">
+                        <div className="grid md:grid-cols-6 gap-2 items-center">
+                          <span className="font-medium">{c.participant_id ? nameById.get(c.participant_id) || '—' : '🍗 Sobrou'}</span>
+                          <span className="md:col-span-2">{c.description}</span>
+                          <span>{c.category || '—'}</span>
+                          <span className="money text-right text-ember-700">{formatBRL(c.value_cents)}</span>
+                          <span>{c.status}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-coal-700">
+                          <details className="flex-1 text-right">
+                            <summary className="btn-ghost cursor-pointer inline-flex">Editar</summary>
+                            <form action={updateContributionAction} className="grid md:grid-cols-7 gap-2 items-end mt-3 border-t border-coal-100 pt-3 text-left">
+                              <input type="hidden" name="barbecue_id" value={b.id} />
+                              <input type="hidden" name="contribution_id" value={c.id} />
+                              <div>
+                                <label className="label">Quem levou</label>
+                                <select className="input" name="participant_id" defaultValue={c.participant_id ?? ''}>
+              <option value="">Sobrou (organizador ficou com o item)</option>
+                                  {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="label">Descrição</label>
+                                <input className="input" name="description" defaultValue={c.description} required />
+                              </div>
+                              <div>
+                                <label className="label">Categoria</label>
+                                <select className="input" name="category" defaultValue={c.category ?? 'Carnes'}>
+                                  {CATEGORIAS.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="label">Valor</label>
+                                <input className="input" name="value" defaultValue={(c.value_cents / 100).toFixed(2).replace('.', ',')} inputMode="decimal" required />
+                              </div>
+                              <div>
+                                <label className="label">Qtd</label>
+                                <input className="input" name="quantity" defaultValue={c.quantity ? String(c.quantity).replace('.', ',') : ''} />
+                              </div>
+                              <div>
+                                <label className="label">Status</label>
+                                <select className="input" name="status" defaultValue={c.status}>
+                                  <option value="pendente">Pendente</option>
+                                  <option value="aprovada">Aprovada</option>
+                                  <option value="rejeitada">Rejeitada</option>
+                                </select>
+                              </div>
+                              <div className="md:col-span-7 flex justify-end">
+                                <SubmitButton label="Salvar" />
+                              </div>
+                            </form>
+                          </details>
+                          <ConfirmDelete formAction={deleteContributionAction} message="Excluir esta contribuição?">
+                            <input type="hidden" name="barbecue_id" value={b.id} />
+                            <input type="hidden" name="contribution_id" value={c.id} />
+                          </ConfirmDelete>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))}

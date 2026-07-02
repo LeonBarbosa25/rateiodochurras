@@ -13,6 +13,7 @@ export type Barbecue = {
   description: string | null;
   pix_key: string | null;
   pix_key_type: string | null;
+  pix_receiver_name: string | null;
   notes: string | null;
   status: string;
   share_token: string;
@@ -50,7 +51,7 @@ export type Expense = {
 export type Contribution = {
   id: string;
   barbecue_id: string;
-  participant_id: string;
+  participant_id: string | null;
   description: string;
   category: string | null;
   value_cents: number;
@@ -68,6 +69,7 @@ export type Payment = {
   payment_method: string | null;
   status: string;
   notes: string | null;
+  receipt_url: string | null;
 };
 
 export async function listBarbecuesForOwner(ownerId: string): Promise<Barbecue[]> {
@@ -97,6 +99,52 @@ export async function getParticipantByToken(token: string): Promise<Participant 
 export async function listParticipants(barbecueId: string): Promise<Participant[]> {
   return dbAll<Participant>(
     `SELECT * FROM participants WHERE barbecue_id = ? ORDER BY created_at ASC`,
+    barbecueId,
+  );
+}
+
+export type ParticipantHistory = Participant & { barbecue_name: string; event_date: string | null };
+
+export async function listParticipantsForOwner(ownerId: string): Promise<ParticipantHistory[]> {
+  return dbAll<ParticipantHistory>(
+    `SELECT p.*, b.name AS barbecue_name, b.event_date
+     FROM participants p
+     JOIN barbecues b ON b.id = p.barbecue_id
+     WHERE b.owner_id = ?
+     ORDER BY p.name ASC, b.event_date DESC NULLS LAST`,
+    ownerId,
+  );
+}
+
+export async function listReusableParticipantsForBarbecue(
+  ownerId: string,
+  barbecueId: string,
+): Promise<ParticipantHistory[]> {
+  return dbAll<ParticipantHistory>(
+    `SELECT p.*, b.name AS barbecue_name, b.event_date
+     FROM participants p
+     JOIN barbecues b ON b.id = p.barbecue_id
+     WHERE b.owner_id = ?
+       AND p.barbecue_id <> ?
+       AND p.active = 1
+       AND NOT EXISTS (
+         SELECT 1
+         FROM participants current_p
+         WHERE current_p.barbecue_id = ?
+           AND current_p.active = 1
+           AND (
+             (p.email IS NOT NULL AND current_p.email IS NOT NULL AND lower(current_p.email) = lower(p.email))
+             OR (p.phone IS NOT NULL AND current_p.phone IS NOT NULL AND current_p.phone = p.phone)
+             OR (
+               (p.email IS NULL OR p.email = '')
+               AND (p.phone IS NULL OR p.phone = '')
+               AND lower(current_p.name) = lower(p.name)
+             )
+           )
+       )
+     ORDER BY p.name ASC, b.event_date DESC NULLS LAST, b.created_at DESC`,
+    ownerId,
+    barbecueId,
     barbecueId,
   );
 }
@@ -134,6 +182,7 @@ export type BarbecueSummary = {
   totalExpensesCents: number;
   totalSplitCents: number;
   totalContributionsCents: number;
+  totalLeftoversCents: number;
   totalPaidCents: number;
   totalPendingCents: number;
   baseValueCents: number;
@@ -159,15 +208,19 @@ export async function computeBarbecueSummary(barbecueId: string): Promise<Barbec
   const totalSplitCents = expenses
     .filter((e) => e.included_in_split)
     .reduce((a, e) => a + e.total_value_cents, 0);
-  const totalContributionsCents = contributions.reduce((a, c) => a + c.value_cents, 0);
+
+  const participantContribs = contributions.filter((c) => c.participant_id !== null);
+  const leftovers = contributions.filter((c) => c.participant_id === null);
+  const totalLeftoversCents = leftovers.reduce((a, c) => a + c.value_cents, 0);
+  const totalContributionsCents = participantContribs.reduce((a, c) => a + c.value_cents, 0);
 
   const splitters = participants.filter((p) => p.participates_in_split);
 
   const contribByParticipant = new Map<string, number>();
-  for (const c of contributions) {
+  for (const c of participantContribs) {
     contribByParticipant.set(
-      c.participant_id,
-      (contribByParticipant.get(c.participant_id) ?? 0) + c.value_cents,
+      c.participant_id!,
+      (contribByParticipant.get(c.participant_id!) ?? 0) + c.value_cents,
     );
   }
 
@@ -177,6 +230,41 @@ export async function computeBarbecueSummary(barbecueId: string): Promise<Barbec
   }));
 
   const result = calculateSplit(totalSplitCents, splitInput);
+
+  // Sobras: o organizador ficou com o item, então ele paga o valor cheio
+  // e os demais participantes recebem o valor dividido como desconto.
+  if (totalLeftoversCents > 0) {
+    const organizerIds = new Set(splitters.filter((p) => p.is_organizer).map((p) => p.id));
+    const nonOrgSplitters = splitters.filter((p) => !organizerIds.has(p.id));
+    const nonOrgCount = nonOrgSplitters.length;
+
+    if (organizerIds.size > 0 && nonOrgCount > 0) {
+      const floorDiscount = Math.floor(totalLeftoversCents / nonOrgCount);
+      const remainder = totalLeftoversCents - floorDiscount * nonOrgCount;
+
+      // Desconto dos não-organizadores (determinístico: remainder primeiros levam +1)
+      let remainderApplied = 0;
+      for (const p of nonOrgSplitters) {
+        const r = result.rows.find((row) => row.participantId === p.id);
+        if (!r) continue;
+        const discount = remainderApplied < remainder ? floorDiscount + 1 : floorDiscount;
+        r.amountDueCents = Math.max(0, r.amountDueCents - discount);
+        remainderApplied++;
+      }
+
+      // Organizador absorve o valor cheio da sobra
+      const orgCount = organizerIds.size;
+      const floorOrgAdd = Math.floor(totalLeftoversCents / orgCount);
+      const orgRemainder = totalLeftoversCents - floorOrgAdd * orgCount;
+      let orgRemainderApplied = 0;
+      for (const orgId of organizerIds) {
+        const r = result.rows.find((row) => row.participantId === orgId);
+        if (!r) continue;
+        r.amountDueCents += floorOrgAdd + (orgRemainderApplied < orgRemainder ? 1 : 0);
+        orgRemainderApplied++;
+      }
+    }
+  }
 
   const paidByParticipant = new Map<string, number>();
   for (const pay of payments) {
@@ -209,6 +297,7 @@ export async function computeBarbecueSummary(barbecueId: string): Promise<Barbec
     totalExpensesCents,
     totalSplitCents,
     totalContributionsCents,
+    totalLeftoversCents,
     totalPaidCents,
     totalPendingCents,
     baseValueCents: result.baseValueCents,

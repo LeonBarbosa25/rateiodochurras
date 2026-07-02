@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
+export const preferredRegion = 'gru1';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
@@ -25,6 +26,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <nav className="flex items-center gap-2 text-sm">
               {user ? (
                 <>
+                  <Link href="/participantes" className="btn-secondary hidden sm:inline-flex">Participantes</Link>
                   <span className="text-coal-700 hidden sm:inline">{user.name}</span>
                   <form action={logoutAction}>
                     <button className="btn-ghost" type="submit">Sair</button>

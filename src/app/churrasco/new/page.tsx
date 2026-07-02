@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { createBarbecueAction } from '@/lib/actions';
+import SubmitButton from '@/app/SubmitButton';
 
 export default async function NewBarbecuePage() {
   if (!(await getSessionUser())) redirect('/login');
@@ -15,6 +16,7 @@ export default async function NewBarbecuePage() {
         <div><label className="label">Data</label><input className="input" name="event_date" type="date" /></div>
         <div><label className="label">Horário</label><input className="input" name="event_time" type="time" /></div>
         <div><label className="label">Chave Pix</label><input className="input" name="pix_key" placeholder="email@exemplo.com" /></div>
+        <div><label className="label">Nome de quem recebe o Pix</label><input className="input" name="pix_receiver_name" placeholder="João da Silva" /></div>
         <div>
           <label className="label">Tipo da chave Pix</label>
           <select className="input" name="pix_key_type" defaultValue="">
@@ -29,7 +31,7 @@ export default async function NewBarbecuePage() {
         <div className="sm:col-span-2"><label className="label">Descrição</label><textarea className="input" name="description" rows={2} /></div>
         <div className="sm:col-span-2"><label className="label">Observações para os participantes</label><textarea className="input" name="notes" rows={2} /></div>
         <div className="sm:col-span-2 flex gap-2 justify-end mt-2">
-          <button className="btn-primary" type="submit">Criar churrasco</button>
+          <SubmitButton label="Criar churrasco" />
         </div>
       </form>
     </div>

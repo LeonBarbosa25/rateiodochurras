@@ -11,6 +11,14 @@ html, body {
   min-height: 100%;
 }
 
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
 @layer components {
   .card {
     @apply rounded-2xl bg-white shadow-sm border border-coal-100 p-5;

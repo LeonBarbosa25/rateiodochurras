@@ -2,6 +2,7 @@ import { computeBarbecueSummary, getBarbecue } from '@/lib/queries';
 import { formatBRL } from '@/lib/money';
 import { deleteBarbecueAction, updateBarbecueStatusAction } from '@/lib/actions';
 import { notFound } from 'next/navigation';
+import ConfirmDelete from '@/app/ConfirmDelete';
 
 export default async function BarbecuePanel({ params }: { params: { id: string } }) {
   const b = await getBarbecue(params.id);
@@ -13,6 +14,7 @@ export default async function BarbecuePanel({ params }: { params: { id: string }
       <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
         <Card label="Total das despesas" value={formatBRL(s.totalExpensesCents)} />
         <Card label="Contribuições" value={formatBRL(s.totalContributionsCents)} />
+        <Card label="Sobras (no organizador)" value={formatBRL(s.totalLeftoversCents)} tone="warn" />
         <Card label="Recebido" value={formatBRL(s.totalPaidCents)} tone="ok" />
         <Card label="Pendente" value={formatBRL(s.totalPendingCents)} tone="warn" />
         <Card label="Participantes" value={String(s.participantCount)} small />
@@ -74,18 +76,11 @@ export default async function BarbecuePanel({ params }: { params: { id: string }
               </button>
             </form>
           ))}
-          <form action={deleteBarbecueAction} className="ml-auto">
+          <div className="ml-auto">
+          <ConfirmDelete formAction={deleteBarbecueAction} label="Excluir churrasco" message="⚠️ Excluir o churrasco apaga participantes, despesas, contribuições e pagamentos. Confirmar exclusão?" className="btn-danger">
             <input type="hidden" name="id" value={b.id} />
-            <button
-              className="btn-danger"
-              type="submit"
-              formNoValidate
-              // Confirmação simples client-side via formAction não funciona em RSC;
-              // o organizador será solicitado a confirmar com prompt no botão abaixo.
-            >
-              Excluir churrasco
-            </button>
-          </form>
+          </ConfirmDelete>
+          </div>
         </div>
       </div>
     </div>

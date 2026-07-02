@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { computeBarbecueSummary, getBarbecue, listParticipants, listPayments } from '@/lib/queries';
 import { formatBRL } from '@/lib/money';
+import { formatDateBR } from '@/lib/date';
 import { createPaymentAction, setPaymentStatusAction } from '@/lib/actions';
+import SubmitButton from '@/app/SubmitButton';
 
 export default async function PagamentosPage({ params }: { params: { id: string } }) {
   const b = await getBarbecue(params.id);
@@ -48,7 +50,7 @@ export default async function PagamentosPage({ params }: { params: { id: string 
             </select>
           </div>
           <div className="sm:col-span-3 flex justify-end">
-            <button className="btn-primary" type="submit">Registrar</button>
+            <SubmitButton label="Registrar" />
           </div>
         </form>
       </div>
@@ -60,14 +62,15 @@ export default async function PagamentosPage({ params }: { params: { id: string 
         ) : (
           <div className="overflow-x-auto">
             <table className="table">
-              <thead><tr><th>Participante</th><th>Data</th><th>Forma</th><th className="text-right">Valor</th><th>Status</th></tr></thead>
+              <thead><tr><th>Participante</th><th>Data</th><th>Forma</th><th className="text-right">Valor</th><th>Comprovante</th><th>Status</th></tr></thead>
               <tbody>
                 {payments.map((p) => (
                   <tr key={p.id}>
                     <td>{nameById.get(p.participant_id) || '—'}</td>
-                    <td>{p.payment_date || '—'}</td>
+                    <td>{formatDateBR(p.payment_date)}</td>
                     <td>{p.payment_method || '—'}</td>
                     <td className="text-right money">{formatBRL(p.value_cents)}</td>
+                    <td>{p.receipt_url ? <a className="text-ember-700 hover:underline" href={p.receipt_url} target="_blank">Abrir</a> : '—'}</td>
                     <td>
                       <form action={setPaymentStatusAction} className="flex gap-1 flex-wrap">
                         <input type="hidden" name="barbecue_id" value={b.id} />
