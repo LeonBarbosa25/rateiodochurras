@@ -263,28 +263,32 @@ export async function addParticipantsFromHistoryAction(formData: FormData) {
 
   let imported = 0;
   for (const source of sources) {
-    const existing = await dbGet<{ id: string }>(
-      `SELECT id
-       FROM participants
-       WHERE barbecue_id = ?
-         AND active = 1
-         AND (
-           (? IS NOT NULL AND email IS NOT NULL AND lower(email) = lower(?))
-           OR (? IS NOT NULL AND phone IS NOT NULL AND phone = ?)
-           OR ((? IS NULL OR ? = '') AND (? IS NULL OR ? = '') AND lower(name) = lower(?))
-         )
-       LIMIT 1`,
-      barbecueId,
-      source.email,
-      source.email,
-      source.phone,
-      source.phone,
-      source.email,
-      source.email,
-      source.phone,
-      source.phone,
-      source.name,
-    );
+    const existing = source.email
+      ? await dbGet<{ id: string }>(
+          `SELECT id
+           FROM participants
+           WHERE barbecue_id = ? AND active = 1 AND email IS NOT NULL AND lower(email) = lower(?)
+           LIMIT 1`,
+          barbecueId,
+          source.email,
+        )
+      : source.phone
+        ? await dbGet<{ id: string }>(
+            `SELECT id
+             FROM participants
+             WHERE barbecue_id = ? AND active = 1 AND phone IS NOT NULL AND phone = ?
+             LIMIT 1`,
+            barbecueId,
+            source.phone,
+          )
+        : await dbGet<{ id: string }>(
+            `SELECT id
+             FROM participants
+             WHERE barbecue_id = ? AND active = 1 AND lower(name) = lower(?)
+             LIMIT 1`,
+            barbecueId,
+            source.name,
+          );
     if (existing) continue;
 
     const id = newId();
